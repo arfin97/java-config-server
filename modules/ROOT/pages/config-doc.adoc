@@ -1,0 +1,36 @@
+= Configuration Steps:
+
+[TIP]
+OFFICIAL DOCUMENTATION: https://spring.io/guides/gs/centralized-configuration/[Link]
+
+
+== Create a Configuration Server: 
+
+. Create a github repository with all your configuration files named by the application display name like movie-name-service.properties
+. Download configuration server using initializer with Config Server and Eureka Client dependency. 
+. Add these to properties file
++
+[source, properties]
+----
+spring.application.name=config-server
+server.port=8888
+spring.cloud.config.server.git.uri=https://github.com/arfin97/Spring-Cloud-Configuration-Repo
+----
+. Add the following into the main class
++
+[source, java]
+----
+@EnableEurekaClient
+@EnableConfigServer
+----
+. To configure the client to tell him that “go get your properties” you need to add the following line in properties file.
++
+[source, properties]
+----
+spring.cloud.config.uri=http://localhost:8888
+----
+. In the repository the microservice properties file should be named exactly like the display name in the properties file in the microservice. So that it will be able to find it’s one correctly. 
+. In the config server, to check the files of uploaded configurations, the pattern of url is
+http://localhost:8888/<file-name>/profile
+http://localhost:8888/movie-name-service/default
+. To add refresh mechanism in properties add @RefreshScope in your controller files.
