@@ -1,4 +1,5 @@
 name: config-server
 title: Configuration Server
+version: '1.0'
 nav:
 - modules/ROOT/nav.adoc
