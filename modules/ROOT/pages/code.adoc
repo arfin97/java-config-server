@@ -4,7 +4,7 @@
 .ConfigServerApplication.java
 [source, java]
 ----
-include::CODE:example$config-server/src/main/java/com/moviedatabase/config-server/ConfigServerApplication.java[]
+include::CODE:example$config-server/src/main/java/com/moviedatabase/configserver/ConfigServerApplication.java[]
 ----
 
 == Properties:
