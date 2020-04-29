@@ -1,0 +1,27 @@
+= CODES
+
+== Main
+.ConfigServerApplication.java
+[source, java]
+----
+include::CODE:example$config-server/src/main/java/com/moviedatabase/configserver/ConfigServerApplication.java[]
+----
+
+== Properties:
+.application.properties
+[source, properties]
+----
+include::CODE:example$config-server/src/main/resources/application.properties[]
+----
+
+== Dependencies
+.pom.xml
+[source, xml]
+----
+include::CODE:example$config-server/pom.xml[]
+----
+
+
+
+
+

@@ -1,0 +1,456 @@
+== 29.04.2020: Goals
+
+* Configuration Server In-depth Study.
+** Key Points to Study:
+*** Configuration Hierarchy
+*** Java -jar (runtime config change)
+** Resources:
+* Optional: Gateway Module From PluralSight 2 Course.
+* Antora Structure Change and Compiling them.
+* Optional: Gateway Documentation
+
+= Spring Cloud Configuration Server
+
+[NOTE]
+Remember to include `Spring Boot Actuator` when initializing your project.
+
+== Config Server Rest Endpoints
+=== Parts: `application, profile, branch`
+image::rest-endpoint-part.png[]
+==== Way 1
+* Get -> {application}/{profile}[/label or branch]
+* Get -> myapp/prod/v2
+* Get -> myapp/dev/master
+* Get -> myapp/default
+
+==== Way 2
+* Get-> /{application}-{profile}.(yml | properties)
+* Get-> /myapp-dev.yml
+* Get-> /myapp-prod.properties
+* Get-> /myapp-default.properties
+
+==== Way 3
+* Get-> /{label}/{application}-{profile}.(yml | properties)
+* Get-> /master/myapp-dev.yml
+* Get-> /v2/myapp-prod.properties
+* Get-> /master/myapp-default.properties
+
+== Configuration file hierarchy:
+1. Apllication.properties -> Root Properties file, it applies to all microservices.
+2. Microservice.properties -> Microservice based properties file, takes properties from the root file and overrides them, also adds additional properties.
+3. Microservice-profile.properties -> Active Profile Properties file, prod, qa, dev properties file. It takes from the root and app properties file and overrides the properties and adds additional properties into it.
+
+== Client getting configuration:
+* Without Discovery Server: Give app name, add spring ‘spring.cloud.config.uri=http://localhost:8888/
+* With Discovery Server: Give app name, add ‘spring.cloud.config.discovery.enabled=true’
+
+== Demo 1:
+1. Make a bootstrap.application file: This is loaded before application.properties file. Typically the configuraiton server properties like URI and Name of the application stays here. Read more about bootstrap.application vs application.properties.
+2. In any java class, by adding @Value("${some.other.property}") will inject that property.
+3. If you add annotation @ConfigurationProperties(prefix = "some") Any properties attribute that starts with the prefix some will come here, and will look and match with the ending suffix.  Life if we have some.other.property in our  configuration and we have a attribute inside class with name property. We will be able to inject the some.other.property inside the property string and get the value anywhere inside our java class. private String property;
+
+== Refreshing Configurations: Caution: Requests must be POST
+https://www.devglan.com/spring-cloud/refresh-property-config-runtime[Read more Refresh Property Config at Runtime in Spring Cloud Config]
+
+1. *Manual*: /refresh with spring-boot-actuator: You will have to manually hit this end point of all the microsevices that need a refresh.
+2. *Automatic*: /bus/refresh with RabbitMQ or Kafka: This endpoint will message all the microservices that are registered with our bus and refresh their configurations.
+3. *Automatic & Smart*: Via post commit hooks Spring Cloud Config Monitor & Spring Cloud Bus Broadcasting. Git push > /monitor > smartly choses application that needs the update.
+Caution: You’ll have to add management.endpoints.web.exposure.include=refresh in properties or bootstrap file to enable refreshing. Hit http://localhost:8080/actuator/refresh end point to refresh.
+https://stackoverflow.com/questions/49364866/spring-boot-config-client-refresh-not-working[Read more.]
+
+image::refresh-methods.png[]
+
+[NOTE]
+You will have all the log of configuration changes as you are using git.
+
+[NOTE]
+`@ConfigurationProperties` get refreshed when /refresh configuration endpoint is hit by post request.
+
+[NOTE]
+`@ConfigruationProperties(prefix=”some”)` has to match exatcly with first prefix and the name of the variable needs to match exactly for trailing like for some.property. The prefix will be “some”, the suffix will be “property”. Some.other.property will not work inputting value.
+
+[NOTE]
+`@RefreshScope:` To add something into the space of refresh so that it gets the value when /refresh endpoint is hit. We need to add this annotation.
+
+image::refreshing2.png[]
+
+= Demo 2: Refreshing
+
+1. Add `@RefreshScope` annotation to the class where `@Value` annotated attributes are at.
+2. Add ``management.endpoints.web.exposure.include=refresh`` to your app.properties file.
+3. Change properties at repository.
+4. Hit a `POST` request using postman to `/actuator/refresh` endpoint and go to check if the properties are changed at runtime.
+
+image::refresh3.png[]
+
+image::celibrate.png[]
+
+== Encrypting and Decrypting configurations:
+
+image::encrypt1.png[]
+
+==== Example:
+Stored in git: `my.data.source.password={cipher}ASDKF232lJLKHOH`
+
+Encrypted Configuration at REST or IN-FLIGHT
+
+*Two Endpoints*
+
+. `/encrypt` endpoint to encrypt
+. `/decrypt` endpoint to decrypt
+
+
+[NOTE]
+None of the above two options are secure. You need to secure it by hand. Spring Security can be handy here.
+
+
+
+
+*Two options to Decrypt:*
+
+1. Upon request at the server (use it if your connection from git to client is secure)
+2. Locally at the client (Decrypt at the client side)
+[NOTE]
+The default way is Upon Request at the server. To change it you need to set `spring.cloud.config.server.encrypt.enabled=false`
+[NOTE]
+You must have the Java Cryptography Extension (JCE) http://dustin.schultz.io/ps-scf/[Installation Guide]
+
+==== Step One: Choose Your Key Type
+* Symmetric Key [Easy to use, Less Secure]
+* Asymmetric Key [More Secure]
+*** Public Key
+*** Private Key
+
+==== Step Two (Symmetric): Configure the Config Server
+
+.application.properties
+[source, propertiese]
+encrypt.key=<your_super_secret_key>
+
+.application.yml
+[source, propertiese]
+encrypt:
+key: <your_super_secret_key>
+
+==== Step Two (Asymmetric): Configure the Config Server
+** Option 1
++
+.application.properties
+[source, propertiese]
+encrypt.key=<pem_encoded_key_as_text>
++
+.application.yml
+[source, propertiese]
+encrypt:
+key: <pem_encoded_key_as_text>
+
+* Step Two (Asymmetric): Configure the Config Server [Java Key Store]
+** Option 2
++
+.application.properties
+[source, propertiese]
+encrypt.keyStore.location=<path_to_keystore>
+encrypt.keyStore.password=<keystore_password>
+encrypt.keyStore.alias=<key_name_in_keystore>
++
+.application.yml
+[source, propertiese]
+encrypt:
+keyStore:
+location: <path_to_keystore>
+password: <key_name_in_keystore>
+alias: <key_name_in_keystore>
+
+== Using REST Endpoints to Encrypt and Decrypt Values
+Once you have your Config Server all set up for cryptography, you can utilize some of the utility REST endpoints to encrypt and decrypt values that you will put or take out of your configuration. Both of the endpoints are really, really easy to use. The first one is the encrypt endpoint, and you'd use this to generate the encrypted values that you'll use in your configuration. And it's really simple to use, like I said. All you do is send a POST request to the /encrypt endpoint, and you pass the value that you want to encrypt as the body of the request. The Config Server will use its configured key, either the symmetric or the asymmetric key, to encrypt that value. And again, I can't stress this enough, make sure that this endpoint is secure using Spring Security or any other means to ensure that this endpoint is only accessed by authorized users. The decrypt endpoint is literally almost identical to the encrypt endpoint with the exception of the name and the inputs. And you'd mainly use this for debugging purposes. So to decrypt a value, you would POST to /decrypt, and you would send the encrypted value as the body of the request, and it would return to you the unencrypted value.
+
+image::scf-ecryption1.png[]
+
+image::scf-encryption2.png[]
+
+
+
+= Summary
+
+. The explosion of configuration in the
+. cloud and the need for a config server
+. Using the Spring Cloud Config Server & Client
+. Updating configuration at runtime without restarting
+. Encrypting and decrypting configuration
+
+---
+We've reached the end of this module, so let's take a moment to review what we've learned. We've covered a lot of topics. We first talked about the need for a Configuration Server in a cloud environment to manage the explosion of configuration that comes with managing a distributed system. Then, we saw how to configure the Spring Cloud Config Server to serve our configuration files and how to use the Spring Cloud Config Client along with the bootstrap. properties or the bootstrap. yml to retrieve the configuration during application initialization. After that, we saw how we could brag to our colleagues about updating our configuration at runtime without ever needing to restart our application server. We also saw what gets automatically refreshed and what requires an @RefreshScope annotation. And last, we finished out the module with a section on how to utilize the encryption and decryption support within Spring Cloud Config.
+
+---
+
+
+
+
+
+
+= Buglog:
+
+* If your application is exiting with 0 code without any errors, make sure you have web dependency in your pom.xml file.
+
+
+
+image::javabrains-config-agenda.png[]
+
+Separate businless logic from configuration things.
+Like
+
+* Database Connections
+* Credentials
+* Feature Flags
+* Business logic configuration parameters
+* Scenario testing
+* Spring boot configuration
+
+We need a system that
+
+* Externalized [application.properties]
+* Everionment specific
+* Consistent
+* Version history
+* Real-time Change
+
+== Properties File
+You don't need to put quotation marks over strings inside properties file. You can if you want to.
+[source, properties]
+app.name=My App
+app.description=Welcome to ${app.name}
+
+You can refer to any property by using `dollar sign curly braces` syntax. Even inside the properties file.
+`dollar sign curly braces`  can also be used inside @Value("${app.name}")
+
+
+
+== 3 ways to run Spring Boot apps from command line
+In production there is no run button like IDE. So how it is run? CMD.
+
+Run maven command: mvn install
+
+or go to maven menu in IDE and Click on Execute a Maven Goal, Select Maven Package. It will create a jar of your application with all the tomcat and stuff insode the target folder.
+
+image::run-jar.png[]
+
+use `java -jar name-of-the-jar.jar` command
+
+Where to use it? if you have 100 micros than you can use cmd to run all of them.
+if you need to deoply it inside a server. the jar file is what needed.
+
+You don't even need maven installed in your pc to run your app. mvnw.cmd and mvnw are two files that comes with the spring boot initilizer project that lets you run it without any hassle.
+example: `./mvnw install` command will run install command
+
+`./mvnw spring-boot:run`
+
+https://www.youtube.com/watch?v=Le5YjYNYtZg[3 ways to run Spring Boot apps from command line - Java Brains]
+
+Change properties from cmd.
+
+. Create a new application.properties file inside the same folder of JAR.
+. Edit the application.properties file to override the properties file inside the JAR.
+. When you run java -jar command. The java runtime will notice external app.prop file and will use it to override stuffs.
+
+You can even override the props using command line arguments.
+`java -jar name-of-the-app.jar --server.port=8080`
+
+Precedence.
+. First the internal props file will be applied.
+. It will be overridden by external props file.
+. It will be overridden by any command line args.
+
+System Properties: Heroku, Servers,
+
+Read More
+
+
+The top one will get overridden by the later ones.
+
+. *Default Spring Properties.*
+. @PropertySource annotation on your @Configuration classes.
+. *application.properties file inside jar.*
+. *application.properties file outside jar.*
+. *profile specific applicatoin.properties file inside jar.*
+. *profile specific application.propertiesfile outside jar.*
+. *OS environment variables.*
+. *Java System properties (System.getProperties())*
+. JNDI attributes from java:com/env
+. ServletContext init parameters.
+. ServletConfig init parameters.
+. Properties from Spring_APPLICATION_JSON
+. *Command Line Arguments.*
+. properties attribute on your test. Avialbale @Spring Boot Test.
+. @TestPropertySource
+. Devtools global settings properties.
+
+Reference: https://docs.spring.io/spring-boot/docs/current/reference/html/spring-boot-features.html#boot-features-external-config[Click Here]
+
+
+== @Value
+The value inside @Value annotation will be assigned to the greetings string variable.
+
+.plain simple text
+[source, java]
+@Value("Hello World")
+private String greeting;
+
+.value from properties file
+[source, java]
+@Value("${my.greeting.message}")
+private String greeting;
+
+.default value
+[source, java]
+@Value("${my.greeting.message: default value}")
+private String greeting;
+
+.list of values
+[source, properties]
+my.list.values=One, Two, Three
+
+[source, java]
+@Value("${my.greeting.message: default value}")
+private List<String> listOfValues;
+
+.key-valu pair
+[source, properties]
+dbValues={connectionString: 'http://___', userName: 'foo', password: 'pass'}
+
+[source, java]
+@Value("#${dbValues}")
+private Map<String, String> dbValues;
+
+What '#' before '$' does is that treat the inside of $ as SPeL. It's telling that 'I want the
+rest to be evaluated and assigned as my vairable'
+
+Reference: https://www.youtube.com/watch?v=NFQDqEhx2e0&list=PLqq-6Pq4lTTaoaVoQVfRJPqvNTCjcTvJB&index=5[Three Value annotation tricks you should know]
+
+== Get a group of configuration at once using @ConfigurationProperties
+Have a class and will be populated by all certain kinds of properties.
+
+[NOTE]
+Must Have getter and setters.
+
+[source, java]
+@Configuration
+@ConfigurationProperties(prefix = "db")
+class MyConfi{
+    private String connectionString;
+    private String userName;
+    private String password;
+    //getters
+    //setters
+}
+
+
+[NOTE]
+You get type safety out of the box.
+
+=== When to use @Value and when to use @ConfigurationProperties
+
+
+[INFO]
+* Single prop? -> @Value
+* Multiple prop? -> @ConfigProp
+* Need prop is many places? -> @ConfProp
+
+== Special Spring Boot Actuator Endpoint to get all configuration values
+
+[source, xml]
+.pom.xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-actuator</artifactId>
+</dependency>
+
+[NOTE]
+Spring boot actuator doesn't open all the endpoints by default for security reasons.
+So you have to tell it explicetly to open sensitive endpoints. It is not reccomended for production,
+only for testing perposes.
+
+To expose all the endpoints (add the *)
+[source, properties]
+.pom.xml
+management.endponts.web.exposure.include=*
+
+Go to `http://localhost:8080/actuator/configprops` to see all the properties.
+
+Reference: https://youtu.be/z8kfFbfGGME[ConfigurationProperties explained]
+
+== YAML
+Yet another markup language or YAML ain't Markup Language.
+
+[NOTE]
+YAML hates '='. But all other syntax are cool with YMAL.
+Quotes are optional. But You can add them for confusing values like "*".
+
+The true benefit of YAML is in it's nesting structure.
+
+.properties file.
+[source, properties]
+Bla.Bla.Bla.Something = foo
+Bla.Bla.Bla.SomeOtherThing = bar
+
+.equvalant YMAL file.
+[source, ymal]
+Bla:
+    Bla:
+        Bla:
+            Something: foo
+            SomeOtherThing: bar
+
+[NOTE]
+Avoid tabs. Tabs are confusing, some uses 4 spaces, some 2. Use spaces where you can in YAML file.
+
+Reference: https://youtu.be/RUYV4P68hiE[Using YAML files]
+
+== Spring Profiles
+
+One way
+
+image::jar-properties.png[]
+
+
+Naive Way
+
+image::jar-props2.png[]
+
+You can tecnically do this from our previous knowledge.
+This is very tedious way of configuring stuff.
+
+Better Way: Spring profiles
+Spring profiles are always in effect. The application.properties file is the
+`default` profile. It is selected if no other profiles is told to be selected.
+
+Naming convention for profiles
+
+image::naming-convention.png[]
+
+. Create a new configruation file. ex: `applicatoin-test.yml`
+. Copy the db connections to that profile.
+. Add `spring.profiles.active: test` in your default profile.
+
+`default` profile is always active.
+
+`test` will sit on top of `default` profile. Test will over ride the Default profile.
+
+They get combined. Commons will get overridden.
+
+image::spring-profiles.png[]
+
+You can do this over and over again. `test-qa1` profile can also sit on top of default and test profile.
+It gets the precedence over which is declared last. The last one overrides all the previous ones.
+
+For example, you might have different environement for dev, qa and prod. They might have
+different database connection strings. So they will have different active profile.
+But all the common attributes goes into default profile. You have technically made one jar file
+that can be deployed in different envrionments.
+
+How's that? All these are sitting inside the same jar.
+
+This is where the cmd argument comes in. You can pack all the properties in a single jar.
+And tell from outside which profile to select as active profile from the outside.
+
+
+Reference: https://youtu.be/P91tqdWUHE4[Spring profiles explained]
