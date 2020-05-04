@@ -1,5 +1,5 @@
-name: config-server
-title: Configuration Server
+name: spring-cloud-configuration-server
+title: Spring cloud configuration server
 version: dev
 nav:
 - modules/spring-cloud-configuration-server/nav.adoc
