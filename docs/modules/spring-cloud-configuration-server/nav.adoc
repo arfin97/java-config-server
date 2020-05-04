@@ -1,0 +1,1 @@
+* xref:spring-cloud-configuration-server.adoc[Spring Cloud Configuration Server]

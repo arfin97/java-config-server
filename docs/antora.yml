@@ -2,4 +2,4 @@ name: config-server
 title: Configuration Server
 version: dev
 nav:
-- modules/ROOT/nav.adoc
+- modules/spring-cloud-configuration-server/nav.adoc
