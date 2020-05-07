@@ -5,7 +5,7 @@
 
 = Spring Cloud Configuration Server
 
-=== We need configurations to..
+== We need configurations to..
 Separate businless logic from configuration things.
 For example.
 
@@ -17,7 +17,7 @@ For example.
 * Spring boot configuration
 
 
-=== Goal of configuraiton in microservice architecture.
+== Goal of configuraiton in microservice architecture.
 
 . Externalized
 . Environment Specific
@@ -25,7 +25,7 @@ For example.
 . Change history
 . Real-time management without re-deploy
 
-=== Some solutions for Configuration server.
+== Some solutions for Configuration server.
 
 * Apache Zookeeper
 * ETCD - Distributed Key-Value Store
@@ -36,7 +36,7 @@ We want to change configuration in runtime. Without re-deploy.
 
 image::no-deploy.png[]
 
-=== Spring Cloud Configuration Server
+== Spring Cloud Configuration Server
 
 image::spring-cloud-config-workflow.png[]
 
