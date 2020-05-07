@@ -1,5 +1,4 @@
-name: spring-cloud-configuration-server
+name: microservices
 title: Spring cloud configuration server
 version: dev
-nav:
-- modules/spring-cloud-configuration-server/nav.adoc
+
