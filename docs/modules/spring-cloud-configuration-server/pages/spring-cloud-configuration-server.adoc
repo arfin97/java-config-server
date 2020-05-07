@@ -1,7 +1,3 @@
-// :toc:
-// :toclevels: 5
-// :sectnums:
-// :sectnumlevels: 5
 
 = Spring Cloud Configuration Server
 
